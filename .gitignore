@@ -1,0 +1,22 @@
+node_modules
+.DS_store
+
+#Hardhat files
+cache
+artifacts
+
+#Typechain
+/types
+
+#Coverage
+coverage
+coverage.json
+.coverage_artifacts
+.coverage_contracts
+.coverage_cache
+
+#Logs
+.log
+
+#env
+.env

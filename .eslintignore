@@ -1,0 +1,7 @@
+.next
+node_modules
+build
+out
+cache
+artifacts
+types
