@@ -5,4 +5,3 @@ import "../interfaces/uniswap/IUniswapV2Router.sol";
 import { UniswapV2Router } from "./CAddresses.sol";
 
 IUniswapV2Router constant UNISWAP_V2_ROUTER = IUniswapV2Router(UniswapV2Router);
-
