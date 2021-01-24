@@ -5,3 +5,4 @@ out
 cache
 artifacts
 types
+contracts/contracts/ConditionUniswapV2Rate.sol
