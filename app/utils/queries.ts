@@ -30,3 +30,13 @@ export const PRICES_BY_BLOCK = (tokenAddress, blocks) => {
   queryString += '}'
   return queryString
 }
+
+export const TOKEN_CHART = (tokenAddress) => {
+  return `query tokenDayDatas {
+    tokenDayDatas(first: 1000, skip: 0, orderBy: date, orderDirection: asc, where: { token: "${tokenAddress.toLowerCase()}" }) {
+      date
+      priceUSD
+    }
+  }
+`
+}

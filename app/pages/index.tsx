@@ -1,64 +1,34 @@
-import React, { ChangeEvent, FC, useEffect, useState } from 'react'
-import {
-  Container,
-  makeStyles,
-  Theme,
-  Button,
-  Grid,
-  Typography,
-  CircularProgress,
-  Divider,
-  Box,
-  Tabs,
-  Tab,
-} from '@material-ui/core'
+import React, { FC, useEffect, useState } from 'react'
+import { Container, makeStyles, Theme, Grid, Typography, CircularProgress, Box } from '@material-ui/core'
 import useSigner from 'hooks/useSigner'
-import AccountBalanceWalletIcon from '@material-ui/icons/AccountBalanceWallet'
-import DisconnectIcon from '@material-ui/icons/ExitToApp'
 import { request } from 'graphql-request'
 import useSWR from 'swr'
 import { ethers } from 'ethers'
-import { UNISWAP_V2_SUBGRAPH, PRICES_BY_BLOCK } from 'utils/queries'
-import CreateDSA from 'components/CreateDSA'
-import EtherFaucet from 'components/EtherFaucet'
+import { UNISWAP_V2_SUBGRAPH, PRICES_BY_BLOCK, TOKEN_CHART } from 'utils/queries'
 import Header from 'components/Header'
-import { getDSA } from 'utils/contracts'
-import { DSA } from 'utils/types/deployed'
-import DSAModeration from 'components/DSAModeration'
-import Vault from 'components/Vault'
-import Gelato from 'components/Gelato'
 import { mainnetDeployedAddresses } from 'utils/addresses'
 import useSharedState from 'hooks/useSharedState'
+import Chart from 'components/Chart'
+import TopBar from 'components/TopBar'
+import RepayCard from 'components/RepayCard'
+import OrdersCard from 'components/OrdersCard'
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
-    flexGrow: 1,
-  },
-  connectButton: {
-    backgroundColor: theme.palette.common.white,
-  },
-  accountIcon: {
-    marginRight: theme.spacing(2),
-  },
-  main: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: '100px',
-    flexGrow: 1,
-  },
-  paper: {
-    padding: theme.spacing(2),
-    textAlign: 'center',
-    marginTop: '100px',
-    color: theme.palette.text.secondary,
-  },
-  prices: {
-    paddingTop: theme.spacing(10),
+    minHeight: '100%',
+    paddingTop: theme.spacing(5),
+    paddingBottom: theme.spacing(3),
   },
 }))
 
+const getTokenData = async () => {
+  const { tokenDayDatas } = await request(UNISWAP_V2_SUBGRAPH, TOKEN_CHART(mainnetDeployedAddresses.WETH))
+  return tokenDayDatas
+}
+
 const getUniswapPrices = async (block) => {
   const result = await request(UNISWAP_V2_SUBGRAPH, PRICES_BY_BLOCK([mainnetDeployedAddresses.WBTC], [block]))
+
   let ethPrice: string
   const values = []
   for (var row in result) {
@@ -89,231 +59,81 @@ const getBalance = async (provider: ethers.providers.JsonRpcProvider, signerAddr
   return balance.toString()
 }
 
-const getDsaBalance = async (provider: ethers.providers.JsonRpcProvider, dsaAddress: string) => {
-  const balance = await provider.getBalance(dsaAddress)
-  return balance.toString()
-}
-
 const IndexPage: FC = () => {
   const classes = useStyles()
-  const { walletSelect, walletCheck, isInitialised, walletReset, hasSigner, signer, address, provider } = useSigner()
-  const {
-    latestBlock,
-    dsaIsCreated,
-    updateSharedState,
-    resetSharedState,
-    vaultIsCreated,
-    dsaAddress,
-    gelatoIsAuth,
-  } = useSharedState()
-
-  const [currentTab, setCurrentTab] = useState<string>('dsa')
+  const { signer, address, provider } = useSigner()
+  const [latestBlock, setLatestBlock] = useState<ethers.providers.Block>()
 
   const { data: prices, error: subgraphDataError } = useSWR(
     latestBlock ? [latestBlock, 'getSubgraphData'] : null,
     getUniswapPrices,
   )
-  const { data: balance, mutate: mutateUserBalance } = useSWR(
-    signer ? [provider, address, 'getUserBalance'] : null,
-    getBalance,
-  )
-  const { data: dsaBalance, mutate: mutateDsaBalance } = useSWR(
-    dsaIsCreated ? [provider, dsaAddress, 'getDsaBalance'] : null,
-    getDsaBalance,
-  )
+
+  const { data: balance } = useSWR(signer ? [provider, address, 'getUserBalance'] : null, getBalance)
+
+  const { data: tokenData } = useSWR(['getTokenData'], getTokenData)
 
   useEffect(() => {
     const getBlock = async () => {
       const latestBlockGot = await provider.getBlock(await provider.getBlockNumber())
-      updateSharedState({ latestBlock: latestBlockGot })
+      setLatestBlock(latestBlockGot)
     }
-
     getBlock()
   }, [])
 
-  const updateUserBalance = async () => {
-    await mutateUserBalance()
-  }
-
-  const handleWallet = async () => {
-    try {
-      if (isInitialised) {
-        const walletSelected = await walletSelect()
-        if (walletSelected) {
-          await walletCheck()
-        }
-      }
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
-  const handleDisconnectWallet = () => {
-    try {
-      walletReset()
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
-  const tabs = [
-    { value: 'dsa', label: 'DSA Options' },
-    { value: 'vault', label: 'Vault' },
-    { value: 'gelato', label: 'Gelato' },
-  ]
-
-  const handleTabsChange = (event: ChangeEvent<unknown>, value: string): void => {
-    setCurrentTab(value)
-  }
-
-  if (!prices || !latestBlock)
+  if (!latestBlock || !prices || !tokenData)
     return (
-      <div style={{ display: 'block', marginLeft: 'auto', marginRight: 'auto', paddingTop: '200px', width: '50%' }}>
-        <Container className={classes.prices} component="main" maxWidth="xl">
-          <Grid container>
-            <Grid item xs={12} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <Typography gutterBottom component="span">
-                <CircularProgress />
-              </Typography>
-            </Grid>
-            <Grid
-              item
-              xs={12}
-              style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', paddingTop: '10px' }}
-            >
-              <Typography gutterBottom>Fetching some data from the graph...</Typography>
-            </Grid>
+      <Box mt={30}>
+        <Grid container alignItems="center" justify="center">
+          <Grid item xs={12} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <Typography gutterBottom component="span">
+              <CircularProgress />
+            </Typography>
           </Grid>
-        </Container>
-      </div>
+          <Grid item>
+            <Typography gutterBottom>Fetching some data from the graph...</Typography>
+          </Grid>
+        </Grid>
+      </Box>
     )
 
-  if (subgraphDataError)
-    return (
-      <div style={{ display: 'block', marginLeft: 'auto', marginRight: 'auto', paddingTop: '200px', width: '50%' }}>
-        <Container className={classes.prices} component="main" maxWidth="xl">
-          <Grid container>
-            <Grid
-              item
-              xs={12}
-              style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', paddingTop: '10px' }}
-            >
-              <Typography gutterBottom>Error fetching ETH price from the graph...</Typography>
-            </Grid>
-          </Grid>
-        </Container>
-      </div>
-    )
+  // if (subgraphDataError)
+  //   return (
+  //     <Box mt={30}>
+  //       <Grid container alignItems="center" justify="center">
+  //         <Grid item>
+  //           <Typography gutterBottom>Error fetching ETH price from the subgraph...</Typography>
+  //         </Grid>
+  //       </Grid>
+  //     </Box>
+  //   )
 
   return (
     <div className={classes.root}>
-      <Container className={classes.prices} component="main" maxWidth="md">
-        <>
-          {hasSigner ? (
-            <Grid container>
-              <Grid item xs={12}>
-                <Button style={{ float: 'right' }} onClick={handleDisconnectWallet} size="large">
-                  <DisconnectIcon className={classes.accountIcon} />
-                  Disconnect
-                </Button>
-              </Grid>
-              <Grid item xs={12}>
-                <Button
-                  color="secondary"
-                  style={{ float: 'right' }}
-                  onClick={() => {
-                    resetSharedState()
-                    location.reload()
-                  }}
-                  size="large"
-                >
-                  Reset State
-                </Button>
-              </Grid>
+      <Container>
+        <TopBar />
+        <Box mt={3}>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Header
+                balance={balance}
+                ethPrice={prices?.ethPrice}
+                blockNumber={latestBlock ? latestBlock.number.toString() : '0'}
+              />
             </Grid>
-          ) : null}
-        </>
-        <Header
-          balance={balance}
-          dsaBalance={dsaBalance}
-          ethPrice={prices.ethPrice}
-          blockNumber={latestBlock ? latestBlock.number.toString() : '0'}
-        />
-        {hasSigner ? (
-          <Grid item xs={12} style={{ paddingTop: '30px' }}>
-            <EtherFaucet updateBalance={updateUserBalance} />
-            <CreateDSA />
-            <Container style={{ paddingTop: '30px' }}>
-              {dsaIsCreated ? (
-                <>
-                  <Divider />
-                  <Box mt={3}>
-                    <Tabs
-                      onChange={handleTabsChange}
-                      scrollButtons="auto"
-                      value={currentTab}
-                      variant="scrollable"
-                      textColor="secondary"
-                    >
-                      {tabs.map((tab) => (
-                        <Tab
-                          key={tab.value}
-                          label={tab.label}
-                          value={tab.value}
-                          disabled={
-                            tab.value === 'vault' && !vaultIsCreated
-                              ? true
-                              : false || (tab.value === 'gelato' && !gelatoIsAuth)
-                              ? true
-                              : false
-                          }
-                        />
-                      ))}
-                    </Tabs>
-                  </Box>
 
-                  <Box>
-                    {currentTab === 'dsa' && <DSAModeration />}
-                    {currentTab === 'vault' && <Vault />}
-                    {currentTab === 'gelato' && <Gelato dsaBalance={dsaBalance} mutateDsaBalance={mutateDsaBalance} />}
-                  </Box>
-                </>
-              ) : (
-                <></>
-              )}
-            </Container>
+            <Grid item lg={4} md={4} sm={6} xs={12}>
+              <RepayCard />
+            </Grid>
+
+            <Grid item lg={8} md={8} sm={6} xs={12}>
+              <Chart tokenData={tokenData ?? []} />
+            </Grid>
+            <Grid item lg={12} xs={12}>
+              <OrdersCard />
+            </Grid>
           </Grid>
-        ) : null}
-
-        <div className={classes.main}>
-          <>
-            {!hasSigner ? (
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <Typography
-                    color="textSecondary"
-                    variant="h6"
-                    style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                    gutterBottom
-                  >
-                    To use this simulator you need to connect a wallet.
-                  </Typography>
-                </Grid>
-
-                <Button
-                  className={classes.connectButton}
-                  fullWidth
-                  onClick={handleWallet}
-                  size="large"
-                  variant="contained"
-                >
-                  <AccountBalanceWalletIcon className={classes.accountIcon} />
-                  Connect Wallet
-                </Button>
-              </Grid>
-            ) : null}
-          </>
-        </div>
+        </Box>
       </Container>
     </div>
   )

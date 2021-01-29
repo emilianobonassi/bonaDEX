@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+import * as dotenv from 'dotenv'
+dotenv.config({ path: __dirname + '/.env' })
+
 import React, { createContext, useEffect, useReducer } from 'react'
 import type { FC, ReactNode } from 'react'
 import { ethers } from 'ethers'
@@ -15,9 +19,10 @@ const initOnboard = (subscriptions: Subscriptions, walletChecks: WalletCheckModu
     hideBranding: true,
     networkId,
     subscriptions,
+    darkMode: true,
     walletSelect: {
-      heading: 'Connect to Auto Liquidate Simulator',
-      description: 'Simulate gelato automated task to auto liquidate maker vault if price goes against you.',
+      heading: 'Connect wallet to BonaDEX',
+      description: 'Connect your wallet to BonaDex to set triggers to automatically repay your limit orders.',
       wallets: [
         { walletName: 'metamask', preferred: true },
         // {
@@ -36,7 +41,7 @@ interface SignerState {
   hasSigner: boolean
   signer: ethers.providers.JsonRpcSigner | null
   onboard: OnboardType | null
-  provider: ethers.providers.JsonRpcProvider
+  provider: ethers.providers.JsonRpcProvider | ethers.providers.Provider
   address: string
   masterSigner: ethers.Signer
   gelatoProvider: ethers.Signer
@@ -72,8 +77,9 @@ type OnboardStateChangedAction = {
 }
 
 type Action = SignerStateChangedAction | OnboardStateChangedAction
+const ALCHEMY_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
 
-const provider = new ethers.providers.JsonRpcProvider('http://127.0.0.1:8545/')
+const provider = new ethers.providers.AlchemyProvider('mainnet', ALCHEMY_KEY)
 const hdNodeWallet = ethers.utils.HDNode.fromMnemonic('test test test test test test test test test test test junk')
 const masterSigner = new ethers.Wallet(hdNodeWallet.derivePath(`m/44'/60'/0'/0/0`)).connect(provider)
 const gelatoProvider = new ethers.Wallet(hdNodeWallet.derivePath(`m/44'/60'/0'/0/1`)).connect(provider)
@@ -85,7 +91,7 @@ const initialSignerState: SignerState = {
   signer: null,
   address: '',
   hasSigner: false,
-  provider: provider,
+  provider,
   masterSigner: masterSigner,
   gelatoProvider: gelatoProvider,
   gelatoExecutor: gelatoExecutor,
@@ -100,6 +106,7 @@ const reducer = (state: SignerState, action: Action): SignerState => {
         ...state,
         signer,
         address,
+        provider: provider,
         hasSigner,
       }
     }
@@ -190,24 +197,24 @@ export const SignerProvider: FC<SignerProviderProps> = ({ children }) => {
 
   // Check if wallet is ready to transact
   // Set signer and address
-  useEffect(() => {
-    const previouslySelectedWallet = window.localStorage.getItem('selectedWallet')
-    if (previouslySelectedWallet !== '' && state.onboard) {
-      state.onboard.walletSelect(previouslySelectedWallet).then((selected) => {
-        if (selected) {
-          state.onboard!.walletCheck().then((readyToTransact) => {
-            if (readyToTransact) {
-              const { wallet, address } = state.onboard!.getState()
+  // useEffect(() => {
+  //   const previouslySelectedWallet = window.localStorage.getItem('selectedWallet')
+  //   if (previouslySelectedWallet !== '' && state.onboard) {
+  //     state.onboard.walletSelect(previouslySelectedWallet).then((selected) => {
+  //       if (selected) {
+  //         state.onboard!.walletCheck().then((readyToTransact) => {
+  //           if (readyToTransact) {
+  //             const { wallet, address } = state.onboard!.getState()
 
-              if (wallet.provider) {
-                updateSigner(new ethers.providers.Web3Provider(wallet.provider).getSigner(), address)
-              }
-            }
-          })
-        }
-      })
-    }
-  }, [state.onboard])
+  //             if (wallet.provider) {
+  //               updateSigner(new ethers.providers.Web3Provider(wallet.provider).getSigner(), address)
+  //             }
+  //           }
+  //         })
+  //       }
+  //     })
+  //   }
+  // }, [state.onboard])
 
   return (
     <SignerContext.Provider
