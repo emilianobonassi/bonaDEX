@@ -3,20 +3,7 @@ import type { FC, ReactNode } from 'react'
 import { ethers } from 'ethers'
 
 interface SharedStateState {
-  dsaAddress?: string
-  mockedPrice?: string
-  vaultId?: string
   latestBlock?: ethers.providers.Block
-  dsaIsCreated?: boolean
-  vaultIsCreated?: boolean
-  vaultHasDebt?: boolean
-  gelatoIsAuth?: boolean
-  gelatoIsReady?: boolean
-  taskReceipt?: any
-  mockPriceExecuted?: boolean
-  taskExecuted?: boolean
-  initialCol?: string
-  initialDebt?: string
 }
 
 interface SharedStateContextValue extends SharedStateState {
@@ -36,20 +23,7 @@ type SharedStateChangedAction = {
 type Action = SharedStateChangedAction
 
 const initialSharedState: SharedStateState = {
-  dsaAddress: '',
-  vaultId: '',
-  dsaIsCreated: false,
-  vaultIsCreated: false,
-  vaultHasDebt: false,
-  gelatoIsAuth: false,
-  gelatoIsReady: false,
   latestBlock: null,
-  taskReceipt: null,
-  mockedPrice: '',
-  mockPriceExecuted: false,
-  taskExecuted: false,
-  initialCol: '',
-  initialDebt: '',
 }
 
 const reducer = (state: SharedStateState, action: Action): SharedStateState => {

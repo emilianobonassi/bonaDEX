@@ -1,14 +1,15 @@
 import { SignerProvider } from 'contexts/SignerContext'
 import { SharedStateProvider } from 'contexts/SharedStateContext'
 import { ThemeProvider, CssBaseline, createMuiTheme } from '@material-ui/core'
+import { createTheme } from 'theme'
 
-export const theme = createMuiTheme({})
+export const theme = createTheme()
 
 const MyApp = ({ Component, pageProps }) => {
   return (
     <>
-      <CssBaseline />
       <ThemeProvider theme={theme}>
+        <CssBaseline />
         <SharedStateProvider>
           <SignerProvider>
             <Component {...pageProps} />
